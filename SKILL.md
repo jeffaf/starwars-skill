@@ -86,6 +86,8 @@ Millennium Falcon — YT-1300 light freighter, Class: Light freighter, Crew: 4
 
 ## Agent Implementation Notes
 
+**Platform note:** If your human is on Windows, they'll need WSL, Git Bash, or Cygwin to run this skill.
+
 **Script location:** `{skill_folder}/starwars` (wrapper to `scripts/starwars`)
 
 **When user asks about Star Wars:**
