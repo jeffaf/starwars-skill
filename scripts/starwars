@@ -28,14 +28,14 @@ EOF
 }
 
 fetch() {
-    curl -sf "$1" || { echo "API error" >&2; exit 1; }
+    curl -sf --max-time 10 "$1" || { echo "API error" >&2; exit 1; }
 }
 
 # Helper to resolve species URL to name
 get_species_name() {
     local url="$1"
     if [[ -n "$url" && "$url" != "null" ]]; then
-        curl -sf "$url" 2>/dev/null | jq -r '.name // "Unknown"'
+        curl -sf --max-time 10 "$url" 2>/dev/null | jq -r '.name // "Unknown"'
     else
         echo "Unknown"
     fi
@@ -45,7 +45,7 @@ get_species_name() {
 get_planet_name() {
     local url="$1"
     if [[ -n "$url" && "$url" != "null" ]]; then
-        curl -sf "$url" 2>/dev/null | jq -r '.name // "Unknown"'
+        curl -sf --max-time 10 "$url" 2>/dev/null | jq -r '.name // "Unknown"'
     else
         echo "Unknown"
     fi
@@ -61,10 +61,10 @@ format_people() {
         local homeworld="Unknown"
         
         if [[ -n "$species_url" ]]; then
-            species=$(curl -sf "$species_url" 2>/dev/null | jq -r '.name // "Human"' || echo "Human")
+            species=$(curl -sf --max-time 10 "$species_url" 2>/dev/null | jq -r '.name // "Human"' || echo "Human")
         fi
         if [[ -n "$homeworld_url" ]]; then
-            homeworld=$(curl -sf "$homeworld_url" 2>/dev/null | jq -r '.name // "Unknown"' || echo "Unknown")
+            homeworld=$(curl -sf --max-time 10 "$homeworld_url" 2>/dev/null | jq -r '.name // "Unknown"' || echo "Unknown")
         fi
         
         echo "$name — $species, $homeworld, Height: ${height}cm"
