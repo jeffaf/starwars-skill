@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# starwars - SWAPI CLI for Star Wars universe lookups
+# Usage: starwars <command> [args]
+
+set -euo pipefail
+
+API="https://swapi.dev/api"
+
+usage() {
+    cat <<EOF
+Usage: starwars <command> [args]
+
+Commands:
+  people <name>      Search characters by name
+  planets <name>     Search planets by name
+  films              List all films
+  species <name>     Search species by name
+  starships <name>   Search starships by name
+
+Examples:
+  starwars people "luke"
+  starwars planets "tatooine"
+  starwars films
+  starwars species "wookiee"
+  starwars starships "falcon"
+EOF
+    exit 1
+}
+
+fetch() {
+    curl -sf "$1" || { echo "API error" >&2; exit 1; }
+}
+
+# Helper to resolve species URL to name
+get_species_name() {
+    local url="$1"
+    if [[ -n "$url" && "$url" != "null" ]]; then
+        curl -sf "$url" 2>/dev/null | jq -r '.name // "Unknown"'
+    else
+        echo "Unknown"
+    fi
+}
+
+# Helper to resolve homeworld URL to name
+get_planet_name() {
+    local url="$1"
+    if [[ -n "$url" && "$url" != "null" ]]; then
+        curl -sf "$url" 2>/dev/null | jq -r '.name // "Unknown"'
+    else
+        echo "Unknown"
+    fi
+}
+
+format_people() {
+    # Process each person and resolve their species/homeworld
+    local data
+    data=$(cat)
+    
+    echo "$data" | jq -r '.results[] | "\(.name)|\(.species[0] // "")|\(.homeworld)|\(.height)"' | while IFS='|' read -r name species_url homeworld_url height; do
+        local species="Human"  # Default to Human (SWAPI leaves species empty for humans)
+        local homeworld="Unknown"
+        
+        if [[ -n "$species_url" ]]; then
+            species=$(curl -sf "$species_url" 2>/dev/null | jq -r '.name // "Human"' || echo "Human")
+        fi
+        if [[ -n "$homeworld_url" ]]; then
+            homeworld=$(curl -sf "$homeworld_url" 2>/dev/null | jq -r '.name // "Unknown"' || echo "Unknown")
+        fi
+        
+        echo "$name — $species, $homeworld, Height: ${height}cm"
+    done
+}
+
+format_planets() {
+    jq -r '.results[] | "\(.name) — Population: \(.population), Climate: \(.climate), Terrain: \(.terrain)"'
+}
+
+format_films() {
+    jq -r '.results | sort_by(.episode_id)[] | "Episode \(.episode_id): \(.title) (\(.release_date)) — Director: \(.director)"'
+}
+
+format_species() {
+    jq -r '.results[] | "\(.name) — Classification: \(.classification), Language: \(.language), Avg Lifespan: \(.average_lifespan) years"'
+}
+
+format_starships() {
+    jq -r '.results[] | "\(.name) — \(.model), Class: \(.starship_class), Crew: \(.crew)"'
+}
+
+cmd_people() {
+    [[ -z "${1:-}" ]] && { echo "Usage: starwars people <name>" >&2; exit 1; }
+    fetch "$API/people/?search=$(printf '%s' "$1" | jq -sRr @uri)" | format_people
+}
+
+cmd_planets() {
+    [[ -z "${1:-}" ]] && { echo "Usage: starwars planets <name>" >&2; exit 1; }
+    fetch "$API/planets/?search=$(printf '%s' "$1" | jq -sRr @uri)" | format_planets
+}
+
+cmd_films() {
+    fetch "$API/films/" | format_films
+}
+
+cmd_species() {
+    [[ -z "${1:-}" ]] && { echo "Usage: starwars species <name>" >&2; exit 1; }
+    fetch "$API/species/?search=$(printf '%s' "$1" | jq -sRr @uri)" | format_species
+}
+
+cmd_starships() {
+    [[ -z "${1:-}" ]] && { echo "Usage: starwars starships <name>" >&2; exit 1; }
+    fetch "$API/starships/?search=$(printf '%s' "$1" | jq -sRr @uri)" | format_starships
+}
+
+[[ $# -lt 1 ]] && usage
+
+case "$1" in
+    people)    shift; cmd_people "$@" ;;
+    planets)   shift; cmd_planets "$@" ;;
+    films)     shift; cmd_films "$@" ;;
+    species)   shift; cmd_species "$@" ;;
+    starships) shift; cmd_starships "$@" ;;
+    -h|--help|help) usage ;;
+    *) echo "Unknown command: $1" >&2; usage ;;
+esac
